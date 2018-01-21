@@ -1,5 +1,11 @@
 package mapreduce
 
+import (
+    "os"
+    "encoding/json"
+    //"sort"
+    //"fmt"
+)
 // doReduce manages one reduce task: it reads the intermediate
 // key/value pairs (produced by the map phase) for this task, sorts the
 // intermediate key/value pairs by key, calls the user-defined reduce function
@@ -37,10 +43,28 @@ func doReduce(
 	// JSON -- it is just the marshalling format we chose to use. Your
 	// output code will look something like this:
 	//
-	// enc := json.NewEncoder(file)
-	// for key := ... {
-	// 	enc.Encode(KeyValue{key, reduceF(...)})
-	// }
-	// file.Close()
-	//
+    //kvmap := make(map[int][]KeyValue)
+    kvmap := make(map[string][]string)
+    var kvs []KeyValue
+    for m := 0; m < nMap; m++ {
+        inFileName := reduceName(jobName, m, reduceTaskNumber)
+        inFile, err := os.Open(inFileName)
+        check_err(err)
+        enc := json.NewDecoder(inFile)
+        enc.Decode(&kvs)
+        //fmt.Printf("name:%s,kvslen:%d",inFileName, len(kvs))
+        for _, kv := range kvs {
+            kvmap[kv.Key] = append(kvmap[kv.Key],kv.Value)
+            //fmt.Printf("name:%s,key:%s,value:%s",inFileName, kv.Key, kv.Value)
+            //sort.Strings(kvmap[kv.Key])
+        }
+        //fmt.Printf("name:%s,len:%d",inFileName, len(kvmap))
+    }
+    file, err := os.Create(outFile)
+    check_err(err)
+	enc := json.NewEncoder(file)
+	for key,kvs := range kvmap {
+        enc.Encode(KeyValue{key, reduceF(key, kvs)})
+	}
+	file.Close()
 }
