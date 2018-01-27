@@ -24,6 +24,8 @@ import (
     "time"
     "log"
     "sort"
+    "bytes"
+    "labgob"
 )
 
 // import "bytes"
@@ -127,12 +129,13 @@ func (rf *Raft) GetState() (int, bool) {
 func (rf *Raft) persist() {
 	// Your code here (2C).
 	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// data := w.Bytes()
-	// rf.persister.SaveRaftState(data)
+	 w := new(bytes.Buffer)
+	 e := labgob.NewEncoder(w)
+	 e.Encode(rf.currentTerm)
+	 e.Encode(rf.votedFor)
+	 e.Encode(rf.log)
+	 data := w.Bytes()
+	 rf.persister.SaveRaftState(data)
 }
 
 //
@@ -144,17 +147,21 @@ func (rf *Raft) readPersist(data []byte) {
 	}
 	// Your code here (2C).
 	// Example:
-	// r := bytes.NewBuffer(data)
-	// d := labgob.NewDecoder(r)
-	// var xxx
-	// var yyy
-	// if d.Decode(&xxx) != nil ||
-	//    d.Decode(&yyy) != nil {
-	//   error...
-	// } else {
-	//   rf.xxx = xxx
-	//   rf.yyy = yyy
-	// }
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	var currentTerm int
+	var votedFor int
+	var l []Log
+	if d.Decode(&currentTerm) != nil ||
+	   d.Decode(&votedFor) != nil ||
+	   d.Decode(&l) != nil {
+	   panic("decode error")
+	} else {
+	   rf.currentTerm = currentTerm
+	   rf.votedFor = votedFor
+	   rf.log = l
+       //log.Printf("recover from persister, currentTerm:%d, votedFor:%d, log:%+v, rf.me:%d",currentTerm, votedFor, l, rf.me)
+	}
 }
 
 
@@ -212,6 +219,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
         rf.currentTerm = args.Term
         rf.toFollower()
         rf.votedFor = -1
+        rf.persist()
     }
     if rf.votedFor != -1 && rf.votedFor != args.CandidateId {
         return
@@ -279,14 +287,15 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
     reply.Term = rf.currentTerm
     reply.Success = false
     if args.Term < rf.currentTerm {
-        log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
+        //log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
         return
     }
     rf.currentTerm = args.Term
     rf.toFollower()
+    rf.persist()
     if len(rf.log) < args.PrevLogIndex {
         reply.NextLogIndex = len(rf.log)
-        log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
+        //log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
         return
     }
     if args.PrevLogIndex > 0 && len(rf.log) >= args.PrevLogIndex {
@@ -313,6 +322,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
             rf.log = append(rf.log, args.Entries[i])
         }
     }
+    rf.persist()
     if args.LeaderCommit > rf.commitIndex {
         rf.commitIndex = Min(args.LeaderCommit, len(rf.log))
     }
@@ -356,6 +366,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
     l.CommandIndex = index
     l.Command = command
     rf.log = append(rf.log, l)
+    rf.persist()
     rf.mu.Unlock()
     log.Printf("Start: me:%d, command:%+v,index:%d, term:%d, isLeader:%+v", rf.me, command, index, term, isLeader)
 
@@ -480,6 +491,7 @@ func (rf *Raft) startHeartbeat() {
                     if reply.Term > rf.currentTerm {
                         rf.currentTerm = reply.Term
                         rf.toFollower()
+                        rf.persist()
                         return
                     }
                     if rf.role != Leader {
@@ -499,7 +511,7 @@ func (rf *Raft) startHeartbeat() {
                 }
             }(server, c)
         }
-        time.Sleep(100 * time.Millisecond)
+        time.Sleep(50 * time.Millisecond)
     }
 }
 func (rf *Raft) updateCommitIndex() {
@@ -595,6 +607,7 @@ func (rf *Raft) sendRequestVoteToAll(currentTerm int) {
                 if reply.Term > rf.currentTerm {
                     rf.currentTerm = reply.Term
                     rf.toFollower()
+                    rf.persist()
                 }
                 rf.mu.Unlock()
             }
@@ -603,7 +616,7 @@ func (rf *Raft) sendRequestVoteToAll(currentTerm int) {
 }
 
 func (rf *Raft) resetElectionTimeout() {
-    rf.timeoutElapses = GenerateRangeNum(250,400)
+    rf.timeoutElapses = GenerateRangeNum(150,300)
 }
 
 func (rf *Raft) startElection() {
@@ -623,6 +636,7 @@ func (rf *Raft) startElection() {
                 rf.role = Candidate
                 rf.currentTerm += 1
                 rf.votedFor = rf.me
+                rf.persist()
                 //log.Printf("startElection: rf:%+v\n", rf)
                 rf.mu.Unlock()
                 rf.sendRequestVoteToAll(rf.currentTerm)
