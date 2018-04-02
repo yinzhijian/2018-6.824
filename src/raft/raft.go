@@ -120,6 +120,16 @@ func (rf *Raft) GetState() (int, bool) {
 	return term, isleader
 }
 
+func (rf *Raft) GetLog(index int) (Log, bool) {
+    rf.mu.Lock()
+    defer rf.mu.Unlock()
+    if len(rf.log) >= index {
+        return rf.log[index-1], true
+    }
+    var log Log
+    return log, false
+}
+
 
 //
 // save Raft's persistent state to stable storage,
@@ -287,7 +297,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
     reply.Term = rf.currentTerm
     reply.Success = false
     if args.Term < rf.currentTerm {
-        //log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
+        log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
         return
     }
     rf.currentTerm = args.Term
@@ -295,7 +305,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
     rf.persist()
     if len(rf.log) < args.PrevLogIndex {
         reply.NextLogIndex = len(rf.log)
-        //log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
+        log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
         return
     }
     if args.PrevLogIndex > 0 && len(rf.log) >= args.PrevLogIndex {
@@ -336,6 +346,16 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
         rf.applyCh <-msg
     }
     //log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
+}
+
+func (rf *Raft) GetAppliedLogs() ([]Log){
+    rf.mu.Lock()
+    defer rf.mu.Unlock()
+    var logs []Log
+    if len(rf.log) > 0 && rf.lastApplied > 0 {
+        return rf.log[0:rf.lastApplied - 1]
+    }
+    return logs
 }
 
 //
@@ -384,6 +404,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 //
 func (rf *Raft) Kill() {
 	// Your code here, if desired.
+    rf.mu.Lock()
+    defer rf.mu.Unlock()
     rf.killed = true
 }
 
@@ -442,30 +464,12 @@ func (rf *Raft) startHeartbeat() {
             return
         }
         rf.mu.Unlock()
-        c := make(chan bool, len(peers) - 1)
-        go func(peerNum int, c chan bool) {
-            timeout := time.After(200 * time.Millisecond)
-            times := 0
-            for rf.killed == false {
-                select {
-                case <-c:
-                    times += 1
-                    if times >= peerNum/2 {
-                        rf.updateCommitIndex()
-                        //log.Printf("updateCommitIndex rf:%+v\n", rf)
-                        return
-                    }
-                case <-timeout:
-                    return
-                }
-            }
-        }(len(peers), c)
 
         for server := range peers {
             if server == rf.me {
                 continue
             }
-            go func(server int, c chan bool) {
+            go func(server int) {
                 rf.mu.Lock()
                 args := new(AppendEntriesArgs)
                 args.Term = rf.currentTerm
@@ -478,6 +482,7 @@ func (rf *Raft) startHeartbeat() {
                         args.PrevLogTerm = rf.log[args.PrevLogIndex - 1].Term
                     }
                     if len(rf.log) >= rf.nextIndex[server] {
+                        //log.Printf("rf.log:%+v, nextIndex[server]:%d", rf.log, rf.nextIndex[server])
                         args.Entries = rf.log[rf.nextIndex[server] - 1:]
                     }
                 }
@@ -487,29 +492,31 @@ func (rf *Raft) startHeartbeat() {
                 ok := rf.sendAppendEntries(server, args, reply)
                 if ok == true {
                     rf.mu.Lock()
-                    defer rf.mu.Unlock()
                     if reply.Term > rf.currentTerm {
                         rf.currentTerm = reply.Term
                         rf.toFollower()
                         rf.persist()
+                        rf.mu.Unlock()
                         return
                     }
                     if rf.role != Leader {
+                        rf.mu.Unlock()
                         return
                     }
-                    if len(args.Entries) > 0 && args.PrevLogIndex == rf.nextIndex[server] - 1 {
-                        if reply.Success == true {
-                            rf.nextIndex[server] = args.Entries[len(args.Entries) - 1].CommandIndex + 1
+                    if args.PrevLogIndex == rf.nextIndex[server] - 1 {
+                        if reply.Success == true && len(args.Entries) > 0{
+                            rf.nextIndex[server] = args.Entries[len(args.Entries) -1].CommandIndex + 1
                             rf.matchIndex[server] = rf.nextIndex[server] - 1
                         } else if rf.nextIndex[server] > reply.NextLogIndex && reply.NextLogIndex > 0{
                             rf.nextIndex[server] = reply.NextLogIndex
-                        } else {
+                        } else if len(args.Entries) > 0 {
                             rf.nextIndex[server] -= 1
                         }
                     }
-                    c <- true
+                    rf.mu.Unlock()
+                    rf.updateCommitIndex()
                 }
-            }(server, c)
+            }(server)
         }
         time.Sleep(50 * time.Millisecond)
     }
@@ -524,17 +531,19 @@ func (rf *Raft) updateCommitIndex() {
         matchIndexs = append(matchIndexs, rf.matchIndex[server])
     }
     sort.Ints(matchIndexs)
-    //log.Printf("rf:%+v, matchIndexs:%+v\n", rf, matchIndexs)
     matchIndex := matchIndexs[len(matchIndexs)/2]
+    log.Printf("rf.me:%d, rf.lastApplied:%d, rf.commitIndex:%d, matchIndex:%d\n", rf.me ,rf.lastApplied, rf.commitIndex, matchIndex)
     if matchIndex > rf.commitIndex && rf.log[matchIndex - 1].Term == rf.currentTerm {
         rf.commitIndex = matchIndex
     }
     for rf.lastApplied < rf.commitIndex {
+        log.Printf("rf.me:%d, rf.lastApplied:%d, rf.commitIndex:%d\n", rf.me ,rf.lastApplied, rf.commitIndex)
         rf.lastApplied += 1
         var msg ApplyMsg
         msg.CommandValid = true
         msg.Command = rf.log[rf.lastApplied - 1].Command
         msg.CommandIndex = rf.log[rf.lastApplied - 1].CommandIndex
+        log.Printf("rf.me:%d, rf.lastApplied:%d, rf.commitIndex:%d, msg.CommandIndex:%d\n", rf.me ,rf.lastApplied, rf.commitIndex, msg.CommandIndex)
         rf.applyCh <-msg
     }
     rf.mu.Unlock()
