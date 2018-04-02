@@ -1,0 +1,163 @@
+/var/tmp/824-501/mr10590-master: Starting Map/Reduce task test
+Schedule: 20 Map tasks (10 I/Os)
+/var/tmp/824-501/mr10590-worker1: given Map task #0 on file 824-mrinput-0.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: given Map task #1 on file 824-mrinput-1.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #1 done
+/var/tmp/824-501/mr10590-worker1: Map task #0 done
+/var/tmp/824-501/mr10590-worker1: given Map task #2 on file 824-mrinput-2.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: given Map task #3 on file 824-mrinput-3.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #3 done
+/var/tmp/824-501/mr10590-worker1: Map task #2 done
+/var/tmp/824-501/mr10590-worker0: given Map task #4 on file 824-mrinput-4.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: given Map task #5 on file 824-mrinput-5.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #4 done
+/var/tmp/824-501/mr10590-worker1: Map task #5 done
+/var/tmp/824-501/mr10590-worker0: given Map task #6 on file 824-mrinput-6.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: given Map task #7 on file 824-mrinput-7.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #7 done
+/var/tmp/824-501/mr10590-worker0: Map task #6 done
+/var/tmp/824-501/mr10590-worker0: given Map task #8 on file 824-mrinput-8.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: given Map task #9 on file 824-mrinput-9.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #8 done
+/var/tmp/824-501/mr10590-worker1: Map task #9 done
+/var/tmp/824-501/mr10590-worker1: given Map task #10 on file 824-mrinput-10.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: given Map task #12 on file 824-mrinput-12.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #10 done
+/var/tmp/824-501/mr10590-worker0: Map task #12 done
+/var/tmp/824-501/mr10590-worker0: given Map task #11 on file 824-mrinput-11.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: given Map task #13 on file 824-mrinput-13.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #11 done
+/var/tmp/824-501/mr10590-worker0: given Map task #14 on file 824-mrinput-14.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #13 done
+/var/tmp/824-501/mr10590-worker1: given Map task #16 on file 824-mrinput-16.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #14 done
+/var/tmp/824-501/mr10590-worker0: given Map task #15 on file 824-mrinput-15.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #16 done
+/var/tmp/824-501/mr10590-worker1: given Map task #17 on file 824-mrinput-17.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #15 done
+/var/tmp/824-501/mr10590-worker0: given Map task #18 on file 824-mrinput-18.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #17 done
+/var/tmp/824-501/mr10590-worker1: given Map task #19 on file 824-mrinput-19.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #18 done
+/var/tmp/824-501/mr10590-worker1: Map task #19 done
+Schedule: Map phase done
+Schedule: 10 Reduce tasks (20 I/Os)
+/var/tmp/824-501/mr10590-worker1: given Reduce task #1 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #1 done
+/var/tmp/824-501/mr10590-worker1: given Reduce task #0 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #0 done
+/var/tmp/824-501/mr10590-worker1: given Reduce task #4 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #4 done
+/var/tmp/824-501/mr10590-worker1: given Reduce task #3 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #3 done
+/var/tmp/824-501/mr10590-worker1: given Reduce task #2 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #2 done
+/var/tmp/824-501/mr10590-worker1: given Reduce task #5 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #5 done
+/var/tmp/824-501/mr10590-worker1: given Reduce task #7 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #7 done
+/var/tmp/824-501/mr10590-worker1: given Reduce task #6 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #6 done
+/var/tmp/824-501/mr10590-worker1: given Reduce task #8 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #8 done
+/var/tmp/824-501/mr10590-worker1: given Reduce task #9 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker1: Reduce task #9 done
+Schedule: Reduce phase done
+Master: RPC /var/tmp/824-501/mr10590-worker0 shutdown error
+Merge: read mrtmp.test-res-0
+Merge: read mrtmp.test-res-1
+Merge: read mrtmp.test-res-2
+Merge: read mrtmp.test-res-3
+Merge: read mrtmp.test-res-4
+Merge: read mrtmp.test-res-5
+Merge: read mrtmp.test-res-6
+Merge: read mrtmp.test-res-7
+Merge: read mrtmp.test-res-8
+Merge: read mrtmp.test-res-9
+/var/tmp/824-501/mr10590-master: Map/Reduce task completed
+/var/tmp/824-501/mr10590-master: Starting Map/Reduce task test
+Schedule: 20 Map tasks (10 I/Os)
+/var/tmp/824-501/mr10590-worker0: given Map task #0 on file 824-mrinput-0.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: given Map task #1 on file 824-mrinput-1.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #0 done
+/var/tmp/824-501/mr10590-worker1: Map task #1 done
+/var/tmp/824-501/mr10590-worker1: given Map task #2 on file 824-mrinput-2.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: given Map task #4 on file 824-mrinput-4.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #2 done
+/var/tmp/824-501/mr10590-worker1: given Map task #3 on file 824-mrinput-3.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #4 done
+/var/tmp/824-501/mr10590-worker0: given Map task #5 on file 824-mrinput-5.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #3 done
+/var/tmp/824-501/mr10590-worker1: given Map task #6 on file 824-mrinput-6.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #5 done
+/var/tmp/824-501/mr10590-worker0: given Map task #7 on file 824-mrinput-7.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #6 done
+/var/tmp/824-501/mr10590-worker1: given Map task #8 on file 824-mrinput-8.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #7 done
+/var/tmp/824-501/mr10590-worker0: given Map task #18 on file 824-mrinput-18.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #8 done
+/var/tmp/824-501/mr10590-worker1: given Map task #9 on file 824-mrinput-9.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #18 done
+/var/tmp/824-501/mr10590-worker0: given Map task #10 on file 824-mrinput-10.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #9 done
+/var/tmp/824-501/mr10590-worker1: given Map task #12 on file 824-mrinput-12.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #10 done
+/var/tmp/824-501/mr10590-worker0: given Map task #11 on file 824-mrinput-11.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #12 done
+/var/tmp/824-501/mr10590-worker1: given Map task #14 on file 824-mrinput-14.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #11 done
+/var/tmp/824-501/mr10590-worker0: given Map task #13 on file 824-mrinput-13.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #14 done
+/var/tmp/824-501/mr10590-worker1: given Map task #15 on file 824-mrinput-15.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #13 done
+/var/tmp/824-501/mr10590-worker0: given Map task #16 on file 824-mrinput-16.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #15 done
+/var/tmp/824-501/mr10590-worker1: given Map task #17 on file 824-mrinput-17.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker0: Map task #16 done
+/var/tmp/824-501/mr10590-worker0: given Map task #19 on file 824-mrinput-19.txt (nios: 10)
+/var/tmp/824-501/mr10590-worker1: Map task #17 done
+/var/tmp/824-501/mr10590-worker0: Map task #19 done
+Schedule: Map phase done
+Schedule: 10 Reduce tasks (20 I/Os)
+/var/tmp/824-501/mr10590-worker3: given Reduce task #1 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker2: given Reduce task #3 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker3: Reduce task #1 done
+/var/tmp/824-501/mr10590-worker3: given Reduce task #2 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker2: Reduce task #3 done
+/var/tmp/824-501/mr10590-worker2: given Reduce task #4 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker5: given Reduce task #5 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker4: given Reduce task #0 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker2: Reduce task #4 done
+/var/tmp/824-501/mr10590-worker2: given Reduce task #8 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker3: Reduce task #2 done
+/var/tmp/824-501/mr10590-worker3: given Reduce task #6 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker5: Reduce task #5 done
+/var/tmp/824-501/mr10590-worker5: given Reduce task #7 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker4: Reduce task #0 done
+/var/tmp/824-501/mr10590-worker4: given Reduce task #9 on file  (nios: 20)
+/var/tmp/824-501/mr10590-worker2: Reduce task #8 done
+/var/tmp/824-501/mr10590-worker3: Reduce task #6 done
+/var/tmp/824-501/mr10590-worker5: Reduce task #7 done
+/var/tmp/824-501/mr10590-worker4: Reduce task #9 done
+Schedule: Reduce phase done
+Master: RPC /var/tmp/824-501/mr10590-worker0 shutdown error
+Master: RPC /var/tmp/824-501/mr10590-worker1 shutdown error
+Merge: read mrtmp.test-res-0
+Merge: read mrtmp.test-res-1
+Merge: read mrtmp.test-res-2
+Register: RPC /var/tmp/824-501/mr10590-master register error
+Register: RPC /var/tmp/824-501/mr10590-master register error
+Merge: read mrtmp.test-res-3
+Merge: read mrtmp.test-res-4
+Merge: read mrtmp.test-res-5
+Merge: read mrtmp.test-res-6
+Merge: read mrtmp.test-res-7
+Register: RPC /var/tmp/824-501/mr10590-master register error
+Register: RPC /var/tmp/824-501/mr10590-master register error
+Merge: read mrtmp.test-res-8
+Merge: read mrtmp.test-res-9
+Register: RPC /var/tmp/824-501/mr10590-master register error
+Register: RPC /var/tmp/824-501/mr10590-master register error
+/var/tmp/824-501/mr10590-master: Map/Reduce task completed
+PASS
+ok  	mapreduce	20.207s

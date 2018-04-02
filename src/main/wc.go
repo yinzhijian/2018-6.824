@@ -27,6 +27,7 @@ func mapF(filename string, contents string) []mapreduce.KeyValue {
         kvs = append(kvs,mapreduce.KeyValue{word, "1"})
     }
     return kvs
+	// Your code here (Part II).
 }
 
 //
@@ -37,6 +38,7 @@ func mapF(filename string, contents string) []mapreduce.KeyValue {
 func reduceF(key string, values []string) string {
 	// TODO: you also have to write this function
     return strconv.Itoa(len(values))
+	// Your code here (Part II).
 }
 
 // Can be run in 3 ways:
@@ -55,6 +57,6 @@ func main() {
 		}
 		mr.Wait()
 	} else {
-		mapreduce.RunWorker(os.Args[2], os.Args[3], mapF, reduceF, 100)
+		mapreduce.RunWorker(os.Args[2], os.Args[3], mapF, reduceF, 100, nil)
 	}
 }
