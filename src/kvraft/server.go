@@ -6,6 +6,7 @@ import (
 	"log"
 	"raft"
 	"sync"
+    "time"
 )
 
 const Debug = 0
@@ -22,6 +23,11 @@ type Op struct {
 	// Your definitions here.
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
+    Key string
+    Value string
+    Type string
+    ClientId int64
+    SerialNumber int64
 }
 
 type KVServer struct {
@@ -33,15 +39,86 @@ type KVServer struct {
 	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
+    requestMap map[int64]int64
+    db map[string]string
+    applyIndex int
+    killed bool
 }
 
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
+    defer log.Printf("end Get, args:%+v, reply:%+v, me:%d", args, reply, kv.me)
+    reply.WrongLeader = false
+    if kv.rf.CanGet() == false {
+        reply.WrongLeader = true
+        return
+    }
+    kv.mu.Lock()
+    defer kv.mu.Unlock()
+    val, ok := kv.db[args.Key]
+    if ok {
+        reply.Value = val
+        reply.Err = OK
+    } else {
+        reply.Value = ""
+        reply.Err = ErrNoKey
+    }
 }
 
 func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
+    //defer log.Printf("PutAppend, args:%+v, reply:%+v, me:%d,kv.requestMap:%+v", args, reply, kv.me, kv.requestMap)
+    reply.Err = OK
+    reply.WrongLeader = false
+    //defer log.Printf("end PutAppend, args:%+v", args)
+    if _, isleader := kv.rf.GetState(); isleader == false {
+        reply.WrongLeader = true
+        return
+    }
+    kv.mu.Lock()
+    if val, ok := kv.requestMap[args.ClientId]; ok {
+        if val >= args.SerialNumber {
+            kv.mu.Unlock()
+            reply.WrongLeader = false
+            reply.Err = OK
+            return
+        }
+    }
+    kv.mu.Unlock()
+    //kv.requestMap[args.ClientId] = args.LogId
+    index, term, exist := kv.get(args.ClientId, args.SerialNumber)
+    var isLeader bool = false
+    if exist == false {
+        var op Op
+        op.Key = args.Key
+        op.Value = args.Value
+        op.Type = args.Op
+        op.ClientId = args.ClientId
+        op.SerialNumber = args.SerialNumber
+        index, term, isLeader = kv.rf.Start(op)
+        if isLeader == false {
+            reply.WrongLeader = true
+            return
+        }
+    }
+    defer log.Printf("me:%d, kv.applyIndex:%d, index:%d, reply:%+v", kv.me, kv.applyIndex, index, reply)
+    for kv.applyIndex < index {
+        //log.Printf("me:%d, kv.applyIndex:%d, index:%d", kv.me, kv.applyIndex, index)
+        time.Sleep(5 * time.Millisecond)
+        if _, isleader := kv.rf.GetState(); isleader == false {
+            reply.WrongLeader = true
+            return
+        }
+    }
+    l, exist := kv.rf.GetLog(index)
+    if exist == false || l.Term != term {
+        reply.WrongLeader = true
+        return
+    }
+
+    reply.WrongLeader = false
+    reply.Err = OK
 }
 
 //
@@ -53,6 +130,8 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 func (kv *KVServer) Kill() {
 	kv.rf.Kill()
 	// Your code here, if desired.
+    kv.killed = true
+    log.Printf("end kv kill, me:%d", kv.me)
 }
 
 //
@@ -77,13 +156,67 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv := new(KVServer)
 	kv.me = me
 	kv.maxraftstate = maxraftstate
+    kv.applyIndex = 0
 
 	// You may need initialization code here.
 
 	kv.applyCh = make(chan raft.ApplyMsg)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
+    kv.db = make(map[string]string)
+    kv.requestMap = make(map[int64]int64)
+    go kv.apply()
+
 
 	// You may need initialization code here.
 
 	return kv
+}
+
+func (kv *KVServer) get(clientId int64, serialNumber int64) (int, int, bool) {
+    var index int = -1
+    var term int = -1
+    var exist bool = false
+    logs := kv.rf.GetLogs()
+    //log.Printf("get logs:%+v", logs)
+    for i := 0; i < len(logs); i++ {
+        op, ok := logs[i].Command.(Op)
+        if ok {
+            if (op.Type == "Put" || op.Type == "Append") && op.SerialNumber == serialNumber && op.ClientId == clientId {
+                index = logs[i].CommandIndex
+                term = logs[i].Term
+                exist = true
+            }
+        }
+    }
+    return index, term, exist
+}
+
+func (kv *KVServer) apply() {
+    for kv.killed == false{
+        select {
+        case msg := <-kv.applyCh:
+            if msg.CommandValid == false {
+                continue
+            }
+            op, ok := msg.Command.(Op)
+            kv.mu.Lock()
+            if ok {
+                if op.Type == "Put" {
+                    kv.db[op.Key] = op.Value
+                    kv.requestMap[op.ClientId] = op.SerialNumber
+                } else if op.Type == "Append" {
+                    val, ok := kv.db[op.Key]
+                    if ok {
+                        kv.db[op.Key] = val + op.Value
+                    } else {
+                        kv.db[op.Key] = op.Value
+                    }
+                    kv.requestMap[op.ClientId] = op.SerialNumber
+                }
+            }
+            log.Printf("apply, msg:%+v, me:%d", msg, kv.me)
+            kv.applyIndex = msg.CommandIndex
+            kv.mu.Unlock()
+        }
+    }
 }

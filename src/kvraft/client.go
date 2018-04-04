@@ -3,11 +3,16 @@ package raftkv
 import "labrpc"
 import "crypto/rand"
 import "math/big"
+import "log"
+import "time"
 
 
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
+    leader int
+    clientId int64
+    serialNumber int64
 }
 
 func nrand() int64 {
@@ -21,6 +26,9 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	// You'll have to add code here.
+    ck.leader = int(nrand()) % len(servers)
+    ck.clientId = nrand()
+    ck.serialNumber = 0
 	return ck
 }
 
@@ -39,7 +47,28 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 func (ck *Clerk) Get(key string) string {
 
 	// You will have to modify this function.
-	return ""
+    args := new(GetArgs)
+    args.Key = key
+    for {
+        reply := new(GetReply)
+        ck.leader = ck.leader % len(ck.servers)
+        ok := ck.servers[ck.leader].Call("KVServer.Get", args, reply)
+        if ok == false {
+            ck.leader++
+            continue
+        }
+        if reply.WrongLeader {
+            ck.leader++
+            time.Sleep(1 * time.Millisecond)
+            continue
+        }
+        if reply.Err == ErrNoKey {
+            return ""
+        } else {
+            return reply.Value
+        }
+    }
+    return ""
 }
 
 //
@@ -54,6 +83,28 @@ func (ck *Clerk) Get(key string) string {
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
+    log.Printf("client PutAppend, key:%+v, value:%+v, op:%d", key, value, op)
+    ck.serialNumber += 1
+    args := new(PutAppendArgs)
+    args.Key = key
+    args.Value = value
+    args.Op = op
+    args.ClientId = ck.clientId
+    args.SerialNumber = ck.serialNumber
+    for {
+        reply := new(PutAppendReply)
+        ck.leader = ck.leader % len(ck.servers)
+        ok := ck.servers[ck.leader].Call("KVServer.PutAppend", args, reply)
+        if ok == false {
+            ck.leader++
+            continue
+        }
+        if reply.WrongLeader {
+            ck.leader++
+            continue
+        }
+        return
+    }
 }
 
 func (ck *Clerk) Put(key string, value string) {
