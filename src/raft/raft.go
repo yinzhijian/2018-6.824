@@ -391,9 +391,9 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
     if rf.lastApplied > args.LastIncludedIndex {
         return
     }
-    if rf.commitIndex > args.LastIncludedIndex {
-        return
-    }
+    //if rf.commitIndex > args.LastIncludedIndex {
+    //    return
+    //}
     if rf.lastIncludedIndex >= args.LastIncludedIndex {
         return
     }
