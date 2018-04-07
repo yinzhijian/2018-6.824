@@ -7,6 +7,7 @@ import (
 	"raft"
 	"sync"
     "time"
+    "bytes"
 )
 
 const Debug = 0
@@ -37,10 +38,11 @@ type KVServer struct {
 	applyCh chan raft.ApplyMsg
 
 	maxraftstate int // snapshot if log grows this big
-
+    persister *raft.Persister
 	// Your definitions here.
     requestMap map[int64]int64
     db map[string]string
+    applyCommandIndex int
     applyIndex int
     killed bool
 }
@@ -102,9 +104,9 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
             return
         }
     }
-    defer log.Printf("me:%d, kv.applyIndex:%d, index:%d, reply:%+v", kv.me, kv.applyIndex, index, reply)
-    for kv.applyIndex < index {
-        //log.Printf("me:%d, kv.applyIndex:%d, index:%d", kv.me, kv.applyIndex, index)
+    defer log.Printf("me:%d, kv.applyCommandIndex:%d, index:%d, reply:%+v", kv.me, kv.applyCommandIndex, index, reply)
+    for kv.applyCommandIndex < index {
+        //log.Printf("me:%d, kv.applyCommandIndex:%d, index:%d", kv.me, kv.applyCommandIndex, index)
         time.Sleep(5 * time.Millisecond)
         if _, isleader := kv.rf.GetState(); isleader == false {
             reply.WrongLeader = true
@@ -157,14 +159,19 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.me = me
 	kv.maxraftstate = maxraftstate
     kv.applyIndex = 0
+    kv.applyCommandIndex = 0
 
 	// You may need initialization code here.
 
 	kv.applyCh = make(chan raft.ApplyMsg)
+    kv.persister = persister
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
     kv.db = make(map[string]string)
     kv.requestMap = make(map[int64]int64)
     go kv.apply()
+    if maxraftstate > -1 {
+        go kv.doSnapshot()
+    }
 
 
 	// You may need initialization code here.
@@ -196,6 +203,19 @@ func (kv *KVServer) apply() {
         select {
         case msg := <-kv.applyCh:
             if msg.CommandValid == false {
+                snapshot, ok := msg.Command.([]byte)
+                if ok && len(snapshot) > 0{
+                    kv.mu.Lock()
+                    r := bytes.NewBuffer(snapshot)
+                    d := labgob.NewDecoder(r)
+                    if d.Decode(&kv.applyIndex) != nil ||
+                        d.Decode(&kv.applyCommandIndex) != nil ||
+                        d.Decode(&kv.requestMap) != nil ||
+                        d.Decode(&kv.db) != nil {
+                        panic("decode error")
+                    }
+                    kv.mu.Unlock()
+                }
                 continue
             }
             op, ok := msg.Command.(Op)
@@ -215,8 +235,28 @@ func (kv *KVServer) apply() {
                 }
             }
             log.Printf("apply, msg:%+v, me:%d", msg, kv.me)
-            kv.applyIndex = msg.CommandIndex
+            kv.applyCommandIndex = msg.CommandIndex
+            kv.applyIndex = msg.Index
             kv.mu.Unlock()
         }
+    }
+}
+
+func (kv *KVServer) doSnapshot() {
+    for kv.killed == false{
+        if kv.persister.RaftStateSize() > kv.maxraftstate {
+            kv.mu.Lock()
+            w := new(bytes.Buffer)
+            e := labgob.NewEncoder(w)
+            e.Encode(kv.applyIndex)
+            e.Encode(kv.applyCommandIndex)
+            e.Encode(kv.requestMap)
+            e.Encode(kv.db)
+            data := w.Bytes()
+            applyIndex := kv.applyIndex
+            kv.mu.Unlock()
+            kv.rf.Snapshot(applyIndex, data)
+        }
+        time.Sleep(5 * time.Millisecond)
     }
 }
