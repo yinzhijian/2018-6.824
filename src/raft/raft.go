@@ -450,17 +450,18 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
         return
     }
     if args.PrevLogIndex > 0 && rf.getLastLogIndex() >= args.PrevLogIndex {
-        if rf.lastIncludedIndex == args.PrevLogIndex && rf.lastIncludedTerm != args.PrevLogTerm {
-            log.Printf("AppendEntries: args:%+v, rf:%+v, rf.lastIncludedTerm != args.PrevLogTerm should not happened\n", args, rf)
-            //os.Exit(1)
-            return
-        } else if rf.lastIncludedIndex == args.PrevLogIndex && rf.lastIncludedTerm == args.PrevLogTerm {
-            // do nothing
+        if rf.lastIncludedIndex == args.PrevLogIndex {
+            if rf.lastIncludedTerm != args.PrevLogTerm {
+                log.Printf("AppendEntries: args:%+v, rf:%+v, rf.lastIncludedTerm != args.PrevLogTerm should not happened\n", args, rf)
+                //os.Exit(1)
+                // sender will send a snapshot
+                return
+            }
         } else if rf.log[args.PrevLogIndex - 1 - rf.lastIncludedIndex].Term != args.PrevLogTerm {
             for i:= args.PrevLogIndex;i > rf.lastIncludedIndex;i-- {
                 if rf.log[i - 1 - rf.lastIncludedIndex].Term != rf.log[args.PrevLogIndex - 1 - rf.lastIncludedIndex].Term {
                     reply.NextLogIndex = Max(i, 1)
-                    break
+                    return
                 }
             }
             reply.NextLogIndex = Max(reply.NextLogIndex, 1)
