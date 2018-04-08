@@ -52,7 +52,7 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
     defer log.Printf("end Get, args:%+v, reply:%+v, me:%d", args, reply, kv.me)
     reply.WrongLeader = false
-    if kv.rf.CanGet() == false {
+    if kv.rf.IsReadable() == false {
         reply.WrongLeader = true
         return
     }

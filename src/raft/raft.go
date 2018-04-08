@@ -596,7 +596,7 @@ func (rf *Raft) Kill() {
     rf.killed = true
 }
 
-func (rf *Raft) CanGet() bool {
+func (rf *Raft) IsReadable() bool {
     rf.mu.Lock()
     defer rf.mu.Unlock()
     if rf.role != Leader {

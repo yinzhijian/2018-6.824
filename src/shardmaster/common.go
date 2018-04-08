@@ -19,6 +19,10 @@ package shardmaster
 
 // The number of shards.
 const NShards = 10
+const MaxUint = ^uint(0)
+const MinUint = 0
+const MaxInt = int(MaxUint >> 1)
+const MinInt = -MaxInt - 1
 
 // A configuration -- an assignment of shards to groups.
 // Please don't change this.
@@ -30,12 +34,15 @@ type Config struct {
 
 const (
 	OK = "OK"
+	INVALIDARG = "INVALIDARG"
 )
 
 type Err string
 
 type JoinArgs struct {
 	Servers map[int][]string // new GID -> servers mappings
+    ClientId int64
+    SerialNumber int64
 }
 
 type JoinReply struct {
@@ -45,6 +52,8 @@ type JoinReply struct {
 
 type LeaveArgs struct {
 	GIDs []int
+    ClientId int64
+    SerialNumber int64
 }
 
 type LeaveReply struct {
@@ -55,6 +64,8 @@ type LeaveReply struct {
 type MoveArgs struct {
 	Shard int
 	GID   int
+    ClientId int64
+    SerialNumber int64
 }
 
 type MoveReply struct {
