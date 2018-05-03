@@ -59,6 +59,7 @@ type ApplyMsg struct {
 	CommandValid bool
 	Command      interface{}
 	CommandIndex int
+	CommandTerm int
     Index int
 }
 
@@ -124,7 +125,7 @@ func Max(x, y int) int {
 func (rf *Raft) GetState() (int, bool) {
 
 	var term int
-	var isleader bool
+	var isleader bool = false
 	// Your code here (2A).
     rf.mu.Lock()
     defer rf.mu.Unlock()
@@ -374,11 +375,11 @@ func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs, reply
 
 
 func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) {
-    log.Printf("recevie InstallSnapshot args:%+v", args)
+    //log.Printf("recevie InstallSnapshot args:%+v", args)
     rf.mu.Lock()
     defer rf.mu.Unlock()
     reply.Term = rf.currentTerm
-    log.Printf("InstallSnapshot args:%+v, rf:%+v", args, rf)
+    defer log.Printf("InstallSnapshot args:%+v, rf:%+v, reply:%+v", args, rf, reply)
     if args.Term < rf.currentTerm {
         return
     }
@@ -420,12 +421,13 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
     msg.Command = args.Data
     msg.CommandIndex = rf.lastIncludedCommandIndex
     msg.Index = rf.lastIncludedIndex
+    msg.CommandTerm = rf.lastIncludedTerm
     rf.applyCh <-msg
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
     rf.mu.Lock()
-    log.Printf("AppendEntries: args:%+v, rf:%+v\n", args, rf)
+    //log.Printf("begin AppendEntries: args:%+v, rf:%+v\n", args, rf)
     defer rf.mu.Unlock()
     reply.Term = rf.currentTerm
     reply.Success = false
@@ -492,6 +494,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
         msg.Command = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].Command
         msg.CommandIndex = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].CommandIndex
         msg.Index = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].Index
+        msg.CommandTerm = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].Term
         if msg.CommandValid == false {
             val, ok := msg.Command.(string)
             if ok && val == "noop"{
@@ -503,11 +506,21 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
     //log.Printf("AppendEntries: args:%+v, reply:%+v, rf:%+v\n", args, reply, rf)
 }
 
+func (rf *Raft) GetLogsAfter(index int) ([]Log){
+    rf.mu.Lock()
+    defer rf.mu.Unlock()
+    var logs []Log
+    if len(rf.log) > 0 && rf.log[len(rf.log) - 1].Index > index {
+        return rf.log[index - rf.lastIncludedIndex:]
+    }
+    return logs
+}
+
 func (rf *Raft) GetLogs() ([]Log){
     rf.mu.Lock()
     defer rf.mu.Unlock()
     var logs []Log
-    if rf.getLastLogIndex() > 0 {
+    if len(rf.log) > 0 {
         return rf.log[0:]
     }
     return logs
@@ -575,6 +588,13 @@ func (rf *Raft) start(command interface{}, commandVaild bool) (int, int, bool) {
 	return l.CommandIndex, term, isLeader
 }
 
+func (rf *Raft) IsAllLogApplied() bool {
+    if len(rf.log) > 0 {
+        return rf.lastApplied == rf.log[len(rf.log) -1].Index
+    }
+    return rf.lastApplied == rf.lastIncludedIndex
+}
+
 func (rf *Raft) getLastCommandIndex() int {
     for i := len(rf.log) - 1; i >= 0; i-- {
         if rf.log[i].CommandValid {
@@ -591,8 +611,8 @@ func (rf *Raft) getLastCommandIndex() int {
 //
 func (rf *Raft) Kill() {
 	// Your code here, if desired.
-    rf.mu.Lock()
-    defer rf.mu.Unlock()
+    //rf.mu.Lock()
+    //defer rf.mu.Unlock()
     rf.killed = true
 }
 
@@ -667,6 +687,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
         msg.Command = snapshot
         msg.CommandIndex = rf.lastIncludedCommandIndex
         msg.Index = rf.lastIncludedIndex
+        msg.CommandTerm = rf.lastIncludedTerm
         rf.applyCh <-msg
         rf.started = true
         rf.mu.Unlock()
@@ -745,7 +766,7 @@ func (rf *Raft) doHeartbeat(peers []*labrpc.ClientEnd) {
             args.LeaderId = rf.me
             args.PrevLogIndex = rf.nextIndex[server] - 1
             args.PrevLogTerm = rf.lastIncludedTerm
-            log.Printf("doHeartbeat rf.me(%d) rf.lastIncludedIndex(%d) > args.PrevLogIndex(%d), rf.getLastLogIndex()(%d)", rf.me, rf.lastIncludedIndex, args.PrevLogIndex, rf.getLastLogIndex())
+            //log.Printf("doHeartbeat rf.me(%d) rf.lastIncludedIndex(%d) > args.PrevLogIndex(%d), rf.getLastLogIndex()(%d)", rf.me, rf.lastIncludedIndex, args.PrevLogIndex, rf.getLastLogIndex())
             if rf.lastIncludedIndex > args.PrevLogIndex {
                 // TODO snapshot
                 canDoSnapshot = true
@@ -756,7 +777,7 @@ func (rf *Raft) doHeartbeat(peers []*labrpc.ClientEnd) {
                     args.PrevLogTerm = rf.log[args.PrevLogIndex - 1 - rf.lastIncludedIndex].Term
                 }
                 if rf.getLastLogIndex() >= rf.nextIndex[server] {
-                    log.Printf("rf.log:%+v, nextIndex[server]:%d", rf.log, rf.nextIndex[server])
+                    //log.Printf("rf.log:%+v, nextIndex[server]:%d", rf.log, rf.nextIndex[server])
                     args.Entries = rf.log[rf.nextIndex[server] - 1 - rf.lastIncludedIndex:]
                 }
             }
@@ -830,25 +851,26 @@ func (rf *Raft) updateCommitIndex() {
     }
     sort.Ints(matchIndexs)
     matchIndex := matchIndexs[len(matchIndexs)/2]
-    log.Printf("rf.me:%d, rf.lastApplied:%d, rf.commitIndex:%d, matchIndex:%d\n", rf.me ,rf.lastApplied, rf.commitIndex, matchIndex)
+    //log.Printf("rf.me:%d, rf.lastApplied:%d, rf.commitIndex:%d, matchIndex:%d\n", rf.me ,rf.lastApplied, rf.commitIndex, matchIndex)
     if matchIndex > rf.commitIndex && rf.log[matchIndex - 1 - rf.lastIncludedIndex].Term == rf.currentTerm {
         rf.commitIndex = matchIndex
     }
     for rf.lastApplied < rf.commitIndex {
-        log.Printf("rf.me:%d, rf.lastApplied:%d, rf.commitIndex:%d\n", rf.me ,rf.lastApplied, rf.commitIndex)
+        //log.Printf("rf.me:%d, rf.lastApplied:%d, rf.commitIndex:%d\n", rf.me ,rf.lastApplied, rf.commitIndex)
         rf.lastApplied += 1
         var msg ApplyMsg
         msg.CommandValid = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].CommandValid
         msg.Command = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].Command
         msg.CommandIndex = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].CommandIndex
         msg.Index = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].Index
+        msg.CommandTerm = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].Term
         if msg.CommandValid == false {
             val, ok := msg.Command.(string)
             if ok && val == "noop"{
                 rf.noopTerm = rf.log[rf.lastApplied - 1 - rf.lastIncludedIndex].Term
             }
         }
-        log.Printf("rf.me:%d, rf.lastApplied:%d, rf.commitIndex:%d, msg.CommandIndex:%d\n", rf.me ,rf.lastApplied, rf.commitIndex, msg.CommandIndex)
+        //log.Printf("rf.me:%d, rf.lastApplied:%d, rf.commitIndex:%d, msg.CommandIndex:%d\n", rf.me ,rf.lastApplied, rf.commitIndex, msg.CommandIndex)
         rf.applyCh <-msg
     }
     rf.mu.Unlock()

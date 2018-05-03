@@ -193,14 +193,13 @@ func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) {
 
 func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 	// Your code here.
-    log.Printf("Query begin, args:%+v, reply:%+v, me:%d, sm.requestMap:%+v", args, reply, sm.me, sm.requestMap)
-    defer log.Printf("Query end, args:%+v, reply:%+v, me:%d, sm.requestMap:%+v", args, reply, sm.me, sm.requestMap)
     reply.WrongLeader = false
     reply.Err = OK
     if sm.rf.IsReadable() == false {
         reply.WrongLeader = true
         return
     }
+    //defer log.Printf("Query end, args:%+v, reply:%+v, me:%d, sm.requestMap:%+v", args, reply, sm.me, sm.requestMap)
     sm.mu.Lock()
     defer sm.mu.Unlock()
     if args.Num == -1 {

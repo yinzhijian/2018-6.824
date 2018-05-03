@@ -1,4 +1,5 @@
 package shardkv
+import "raft"
 
 //
 // Sharded key/value server.
@@ -13,6 +14,8 @@ const (
 	OK            = "OK"
 	ErrNoKey      = "ErrNoKey"
 	ErrWrongGroup = "ErrWrongGroup"
+	ErrPrepareMigrated = "ErrPrepareMigrated"
+	ErrMigrated = "ErrMigrated"
 )
 
 type Err string
@@ -26,6 +29,8 @@ type PutAppendArgs struct {
 	// You'll have to add definitions here.
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
+    ClientId int64
+    SerialNumber int64
 }
 
 type PutAppendReply struct {
@@ -42,4 +47,29 @@ type GetReply struct {
 	WrongLeader bool
 	Err         Err
 	Value       string
+}
+
+type PrepareMigrateArgs struct {
+	// You'll have to add definitions here.
+    Shard int
+    Gid int
+	DB   map[string]string
+	RequestMap   map[int64]int64
+	Logs []raft.Log
+}
+
+type PrepareMigrateReply struct {
+	WrongLeader bool
+	Err         Err
+}
+
+type CommitMigrateArgs struct {
+	// You'll have to add definitions here.
+    Shard int
+    Gid int
+}
+
+type CommitMigrateReply struct {
+	WrongLeader bool
+	Err         Err
 }
