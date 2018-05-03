@@ -183,7 +183,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
     }
     kv.mu.Lock()
     shard := key2shard(args.Key)
-    defer log.Printf("end PutAppend, args:%+v, shard:%d", args, shard)
+    defer log.Printf("end PutAppend, args:%+v, shard:%d, kv.gid:%d", args, shard, kv.gid)
     if writable, ok := kv.shards[shard]; !ok || !writable {
         kv.mu.Unlock()
         reply.Err = ErrWrongGroup
@@ -214,34 +214,29 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 }
 
 func (kv *ShardKV) writeToRaft(command interface{}) bool {
-    index, _, isLeader := kv.rf.Start(command)
+    index, term, isLeader := kv.rf.Start(command)
     if isLeader == false {
         log.Printf("writeToRart not leader, me:%d, kv.gid:%d, shards:%+v", kv.me, kv.gid, kv.shards)
-        return false
-    }
-    term, isleader := kv.rf.GetState()
-    if isleader == false {
-        log.Printf("writeToRart not leader, me:%d, kv.gid:%d, shards:%+v, term:%d", kv.me, kv.gid, kv.shards, term)
         return false
     }
     for kv.applyCommandIndex < index {
         if kv.killed == true {
             return false
         }
-        term, isleader = kv.rf.GetState()
+        rfterm, isleader := kv.rf.GetState()
         if isleader == false {
-            log.Printf("writeToRart not leader, me:%d, kv.gid:%d, shards:%+v, term:%d", kv.me, kv.gid, kv.shards, term)
+            log.Printf("writeToRart not leader, me:%d, kv.gid:%d, shards:%+v, rfterm:%d", kv.me, kv.gid, kv.shards, rfterm)
             return false
         }
-        log.Printf("gid:%d, me:%d, kv.applyCommandIndex:%d, index:%d, isleader:%d, term:%d", kv.gid, kv.me, kv.applyCommandIndex, index, isleader, term)
+        log.Printf("gid:%d, me:%d, kv.applyCommandIndex:%d, index:%d, isleader:%d, rfterm:%d, command:%+v", kv.gid, kv.me, kv.applyCommandIndex, index, isleader, rfterm, command)
         time.Sleep(5 * time.Millisecond)
     }
     if term != kv.applyCommandTerm {
         return false
     }
-    term, isleader = kv.rf.GetState()
+    rfterm, isleader := kv.rf.GetState()
     if isleader == false {
-        log.Printf("writeToRart not leader, me:%d, kv.gid:%d, shards:%+v, term:%d", kv.me, kv.gid, kv.shards, term)
+        log.Printf("writeToRart not leader, me:%d, kv.gid:%d, shards:%+v, rfterm:%d", kv.me, kv.gid, kv.shards, rfterm)
         return false
     }
     //l, exist := kv.rf.GetLog(index)
@@ -442,7 +437,6 @@ func (kv *ShardKV) migrate(shard int, newGid int, servers []string) bool {
     }
     kv.shards[shard] = false
     kv.mu.Unlock()
-    log.Printf("disable migrate to servers:%+v, shard:%d, newGid:%d, me:%d, kv.killed:%d, kv.gid:%d", servers, shard, newGid, kv.me, kv.killed, kv.gid)
     // wait all write log applied
     var op Op
     op.Key = "shard"
@@ -454,7 +448,6 @@ func (kv *ShardKV) migrate(shard int, newGid int, servers []string) bool {
         log.Printf("failed stop, migrate to servers:%+v, shard:%d, newGid:%d, me:%d, kv.killed:%d, kv.gid:%d", servers, shard, newGid, kv.me, kv.killed, kv.gid)
         return false
     }
-    log.Printf("finish stop, migrate to servers:%+v, shard:%d, newGid:%d, me:%d, kv.killed:%d, kv.gid:%d", servers, shard, newGid, kv.me, kv.killed, kv.gid)
     kv.mu.Lock()
     args := new(PrepareMigrateArgs)
     args.Gid = newGid
@@ -471,7 +464,6 @@ func (kv *ShardKV) migrate(shard int, newGid int, servers []string) bool {
         log.Printf("not leader, migrate to servers:%+v, shard:%d, newGid:%d, me:%d, kv.killed:%d, kv.gid:%d", servers, shard, newGid, kv.me, kv.killed, kv.gid)
         return false
     }
-    log.Printf("inner , migrate to servers:%+v, shard:%d, newGid:%d, me:%d, kv.killed:%d, kv.gid:%d", servers, shard, newGid, kv.me, kv.killed, kv.gid)
     for si := 0; si < len(servers); si++ {
         srv := kv.make_end(servers[si])
         reply := new(PrepareMigrateReply)
@@ -522,7 +514,7 @@ func (kv *ShardKV) updateConfig() {
         }
         log.Printf("updateConfig config:%+v, kv.nextConfigNum:%d, kv.gid:%d, kv.shards:%+v", config, kv.nextConfigNum, kv.gid, kv.shards)
         canUpdateConfigNum := true
-        if config.Num > 0 {
+        if config.Num > 0 && config.Num <= kv.nextConfigNum {
             prev_config := kv.mck.Query(config.Num - 1)
             log.Printf("updateConfig prev_config:%+v, kv.nextConfigNum:%d, kv.gid:%d, kv.shards:%+v ", prev_config, kv.nextConfigNum, kv.gid, kv.shards)
             // need migrate ?
@@ -544,9 +536,6 @@ func (kv *ShardKV) updateConfig() {
                     }
                 }
             }
-            kv.mu.Lock()
-            shards = DeepCopy(kv.shards).(map[int]bool)
-            kv.mu.Unlock()
             // need add responsible for brand new shared
             for shard, gid := range config.Shards {
                 if gid == kv.gid {
@@ -699,6 +688,7 @@ func (kv *ShardKV) apply() {
                 snapshot, ok := msg.Command.([]byte)
                 if ok && len(snapshot) > 0{
                     kv.mu.Lock()
+                    log.Printf("snapshot before kv:%+v", kv)
                     r := bytes.NewBuffer(snapshot)
                     d := labgob.NewDecoder(r)
                     var applyIndex int
